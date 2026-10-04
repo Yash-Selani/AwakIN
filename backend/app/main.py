@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.api.endpoints import disasters, emergency_numbers, departments, auth
+from app.api.endpoints import disasters, emergency_numbers, departments, auth, places
 from app.api.deps import get_current_user
 from app.core.firebase import initialize_firebase
 
@@ -38,6 +38,12 @@ app.include_router(
     departments.router, 
     prefix="/api/departments", 
     tags=["Departments"], 
+    dependencies=[Depends(get_current_user)]
+)
+app.include_router(
+    places.router,
+    prefix="/api/places",
+    tags=["Places"],
     dependencies=[Depends(get_current_user)]
 )
 
