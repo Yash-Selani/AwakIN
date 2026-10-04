@@ -11,6 +11,7 @@ import Disasters from './pages/Disasters';
 import Alerts from './pages/Alerts';
 import News from './pages/News';
 import Departments from './pages/Departments';
+import EmergencyNumbersPage from './pages/EmergencyNumbersPage';
 import NotFound from './pages/NotFound';
 import './App.css';
 
@@ -36,6 +37,7 @@ function App() {
             <Route path="alerts" element={<Alerts />} />
             <Route path="news" element={<News />} />
             <Route path="departments" element={<Departments />} />
+            <Route path="emergency" element={<EmergencyNumbersPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
