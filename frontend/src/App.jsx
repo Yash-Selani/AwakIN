@@ -2,49 +2,17 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
-import { useAuth } from './context/AuthContext';
+import Dashboard from './pages/Dashboard';
+import MapPage from './pages/MapPage';
+import Disasters from './pages/Disasters';
+import Alerts from './pages/Alerts';
+import News from './pages/News';
+import Departments from './pages/Departments';
+import NotFound from './pages/NotFound';
 import './App.css';
-
-function Dashboard() {
-  const { currentUser, logout } = useAuth();
-  
-  return (
-    <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <h1>Welcome to AwakIN</h1>
-      <p>Logged in as: <strong>{currentUser.email}</strong></p>
-      <button 
-        onClick={logout} 
-        style={{ 
-          padding: '0.75rem 1.5rem', 
-          marginTop: '1rem', 
-          cursor: 'pointer',
-          backgroundColor: '#e53e3e',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          fontWeight: 'bold'
-        }}
-      >
-        Sign Out
-      </button>
-      
-      <div style={{ 
-        marginTop: '3rem', 
-        backgroundColor: '#fff5f5', 
-        color: '#c53030', 
-        padding: '1rem 2rem', 
-        borderRadius: '8px', 
-        border: '1px solid #feb2b2',
-        fontWeight: 'bold',
-        fontSize: '1.2rem'
-      }}>
-        CRITICAL: call 112 for immediate danger
-      </div>
-    </div>
-  );
-}
 
 function App() {
   return (
@@ -53,14 +21,23 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          
           <Route 
             path="/" 
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <Layout />
               </ProtectedRoute>
-            } 
-          />
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="map" element={<MapPage />} />
+            <Route path="disasters" element={<Disasters />} />
+            <Route path="alerts" element={<Alerts />} />
+            <Route path="news" element={<News />} />
+            <Route path="departments" element={<Departments />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
         </Routes>
       </Router>
     </AuthProvider>
