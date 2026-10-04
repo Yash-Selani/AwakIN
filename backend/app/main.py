@@ -1,10 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.api.endpoints import disasters, emergency_numbers, departments
+from app.api.endpoints import disasters, emergency_numbers, departments, auth
+from app.api.deps import get_current_user
+from app.core.firebase import initialize_firebase
 
 app = FastAPI(title="AwakIN API", version="1.0.0")
+
+# Initialize Firebase
+initialize_firebase()
 
 # CORS Configuration
 origins = [
@@ -21,9 +26,20 @@ app.add_middleware(
 )
 
 # Include Routers
-app.include_router(disasters.router, prefix="/api/disasters", tags=["Disasters"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(
+    disasters.router, 
+    prefix="/api/disasters", 
+    tags=["Disasters"], 
+    dependencies=[Depends(get_current_user)]
+)
 app.include_router(emergency_numbers.router, prefix="/api/emergency-numbers", tags=["Emergency Numbers"])
-app.include_router(departments.router, prefix="/api/departments", tags=["Departments"])
+app.include_router(
+    departments.router, 
+    prefix="/api/departments", 
+    tags=["Departments"], 
+    dependencies=[Depends(get_current_user)]
+)
 
 class HealthCheckResponse(BaseModel):
     status: str

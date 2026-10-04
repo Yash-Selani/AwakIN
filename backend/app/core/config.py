@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # External APIs
     GEMINI_API_KEY: str = ""
     FIREBASE_CREDENTIALS_PATH: str = ""
+    FIREBASE_PROJECT_ID: str = ""
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
