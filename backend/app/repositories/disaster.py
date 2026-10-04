@@ -12,4 +12,9 @@ class DisasterRepository(BaseRepository[DisasterType]):
         result = await db.execute(query)
         return list(result.scalars().all())
 
+    async def get_by_slug_with_guides(self, db: AsyncSession, slug: str) -> Optional[DisasterType]:
+        query = select(self.model).options(selectinload(self.model.guides)).filter(self.model.slug == slug)
+        result = await db.execute(query)
+        return result.scalars().first()
+
 disaster_repo = DisasterRepository(DisasterType)
