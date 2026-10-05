@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     SACHET_FEED_URL: str = "TODO_CONFIRM_URL"
     GOOGLE_MAPS_API_KEY: str = ""
     
+    CORS_ORIGINS: str = "http://localhost:5173"
+    
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()

@@ -1,14 +1,27 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.api.endpoints import disasters, emergency_numbers, departments, auth, places, ai_router, alerts, news
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_db
 from app.core.firebase import initialize_firebase
 from app.services.alert_poller import poll_cap_feed
 from app.services.news_poller import poll_news
+from app.core.config import settings
+
+import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,11 +44,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AwakIN API", version="1.0.0", lifespan=lifespan)
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS Configuration
-origins = [
-    "http://localhost:5173",  # Vite dev server
-    # Add production frontend URL here later
-]
+origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -89,8 +102,14 @@ class HealthCheckResponse(BaseModel):
     message: str
 
 @app.get("/api/health", response_model=HealthCheckResponse)
-async def health_check():
+@limiter.limit("10/minute")
+async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Health check endpoint to verify backend status.
     """
-    return HealthCheckResponse(status="ok", message="AwakIN Backend is running smoothly.")
+    try:
+        await db.execute(text("SELECT 1"))
+        return HealthCheckResponse(status="ok", message="AwakIN Backend is running smoothly.")
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return HealthCheckResponse(status="error", message="Database connection failed.")

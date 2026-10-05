@@ -13,36 +13,41 @@ import News from './pages/News';
 import Departments from './pages/Departments';
 import EmergencyNumbersPage from './pages/EmergencyNumbersPage';
 import NotFound from './pages/NotFound';
+import { Toaster } from 'react-hot-toast';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
-          
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Dashboard />} />
-            <Route path="map" element={<MapPage />} />
-            <Route path="disasters" element={<Disasters />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="news" element={<News />} />
-            <Route path="departments" element={<Departments />} />
-            <Route path="emergency" element={<EmergencyNumbersPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Toaster position="top-right" />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+            
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="map" element={<MapPage />} />
+              <Route path="disasters" element={<Disasters />} />
+              <Route path="alerts" element={<Alerts />} />
+              <Route path="news" element={<News />} />
+              <Route path="departments" element={<Departments />} />
+              <Route path="emergency" element={<EmergencyNumbersPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

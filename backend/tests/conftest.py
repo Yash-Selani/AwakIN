@@ -30,10 +30,19 @@ async def db_session(db_engine):
 
 @pytest_asyncio.fixture
 async def async_client(db_session):
+    from app.api.deps import get_current_user
+    
     async def override_get_db():
         yield db_session
 
+    async def override_get_current_user():
+        class MockUser:
+            id = "test_user_id"
+            email = "test@example.com"
+        return MockUser()
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as c:
         yield c
     app.dependency_overrides.clear()
