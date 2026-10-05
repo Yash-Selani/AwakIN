@@ -4,10 +4,11 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from app.api.endpoints import disasters, emergency_numbers, departments, auth, places, ai_router, alerts
+from app.api.endpoints import disasters, emergency_numbers, departments, auth, places, ai_router, alerts, news
 from app.api.deps import get_current_user
 from app.core.firebase import initialize_firebase
 from app.services.alert_poller import poll_cap_feed
+from app.services.news_poller import poll_news
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,10 +17,12 @@ async def lifespan(app: FastAPI):
     
     scheduler = AsyncIOScheduler()
     scheduler.add_job(poll_cap_feed, 'interval', minutes=10)
+    scheduler.add_job(poll_news, 'interval', minutes=10)
     scheduler.start()
     
     # Run once at startup
     scheduler.add_job(poll_cap_feed)
+    scheduler.add_job(poll_news)
     
     yield
     
@@ -74,6 +77,11 @@ app.include_router(
     prefix="/api/alerts",
     tags=["Alerts"]
     # Dependencies left out intentionally to allow public access or dashboard access
+)
+app.include_router(
+    news.router,
+    prefix="/api/news",
+    tags=["News"]
 )
 
 class HealthCheckResponse(BaseModel):
