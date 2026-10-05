@@ -11,17 +11,29 @@ class Alert(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     source = Column(String(100), nullable=False)
     external_id = Column(String(255), unique=True, index=True, nullable=False)
-    title = Column(String(500), nullable=False)
+    title = Column(String(500), nullable=False) # headline
     description = Column(String, nullable=True)
     severity = Column(String(50), index=True)
+    
+    # New CAP fields
+    event = Column(String(255), nullable=True)
+    urgency = Column(String(50), nullable=True)
+    certainty = Column(String(50), nullable=True)
+    instruction = Column(String, nullable=True)
+    polygon = Column(String, nullable=True) # Or JSONB
+    circle = Column(String, nullable=True)
+    
+    # Derived from geocoding / areaDesc
+    state = Column(String(100), index=True, nullable=True)
+    district = Column(String(100), index=True, nullable=True)
+    
     area_desc = Column(String(500))
     lat = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
-    starts_at = Column(DateTime(timezone=True), nullable=True)
+    starts_at = Column(DateTime(timezone=True), nullable=True) # effective
     expires_at = Column(DateTime(timezone=True), nullable=True)
     raw = Column(JSONB)
     fetched_at = Column(DateTime(timezone=True), server_default=func.now())
-
 
 class NewsItem(Base):
     __tablename__ = "news_items"

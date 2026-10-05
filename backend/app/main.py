@@ -1,15 +1,32 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from app.api.endpoints import disasters, emergency_numbers, departments, auth, places, ai_router
+from app.api.endpoints import disasters, emergency_numbers, departments, auth, places, ai_router, alerts
 from app.api.deps import get_current_user
 from app.core.firebase import initialize_firebase
+from app.services.alert_poller import poll_cap_feed
 
-app = FastAPI(title="AwakIN API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    initialize_firebase()
+    
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(poll_cap_feed, 'interval', minutes=10)
+    scheduler.start()
+    
+    # Run once at startup
+    scheduler.add_job(poll_cap_feed)
+    
+    yield
+    
+    # Shutdown
+    scheduler.shutdown()
 
-# Initialize Firebase
-initialize_firebase()
+app = FastAPI(title="AwakIN API", version="1.0.0", lifespan=lifespan)
 
 # CORS Configuration
 origins = [
@@ -51,6 +68,12 @@ app.include_router(
     prefix="/api/ai",
     tags=["AI"],
     dependencies=[Depends(get_current_user)]
+)
+app.include_router(
+    alerts.router,
+    prefix="/api/alerts",
+    tags=["Alerts"]
+    # Dependencies left out intentionally to allow public access or dashboard access
 )
 
 class HealthCheckResponse(BaseModel):

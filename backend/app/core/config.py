@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     FIREBASE_CREDENTIALS_PATH: str = ""
     FIREBASE_PROJECT_ID: str = ""
+    SACHET_FEED_URL: str = "TODO_CONFIRM_URL"
+    GOOGLE_MAPS_API_KEY: str = ""
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
