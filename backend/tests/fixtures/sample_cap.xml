@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>NDMA SACHET Feed</title>
+  <entry>
+    <cap:alert xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+      <cap:identifier>SACHET-12345</cap:identifier>
+      <cap:sender>ndma@gov.in</cap:sender>
+      <cap:sent>2026-10-05T10:00:00+05:30</cap:sent>
+      <cap:status>Actual</cap:status>
+      <cap:msgType>Alert</cap:msgType>
+      <cap:scope>Public</cap:scope>
+      <cap:info>
+        <cap:category>Met</cap:category>
+        <cap:event>Heavy Rain</cap:event>
+        <cap:responseType>Prepare</cap:responseType>
+        <cap:urgency>Expected</cap:urgency>
+        <cap:severity>Severe</cap:severity>
+        <cap:certainty>Likely</cap:certainty>
+        <cap:effective>2026-10-05T12:00:00+05:30</cap:effective>
+        <cap:expires>2026-10-06T12:00:00+05:30</cap:expires>
+        <cap:headline>Severe Heavy Rain warning for Mumbai</cap:headline>
+        <cap:description>Expect very heavy rainfall over the next 24 hours.</cap:description>
+        <cap:instruction>Stay indoors and avoid travel.</cap:instruction>
+        <cap:area>
+          <cap:areaDesc>Mumbai, Maharashtra</cap:areaDesc>
+          <cap:circle>19.0760,72.8777 50.0</cap:circle>
+        </cap:area>
+      </cap:info>
+    </cap:alert>
+  </entry>
+</feed>

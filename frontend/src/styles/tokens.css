@@ -1,0 +1,10 @@
+:root {
+  --color-base-navy: #0F172A;
+  --color-base-navy-light: #1E293B;
+  --color-accent-red: #DC2626;
+  --color-accent-red-hover: #B91C1C;
+  --color-warning-amber: #F59E0B;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --font-main: 'Inter', system-ui, sans-serif;
+}
