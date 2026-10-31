@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: str = ""
     SACHET_FEED_URL: str = "TODO_CONFIRM_URL"
     GOOGLE_MAPS_API_KEY: str = ""
+    GOOGLE_PLACES_API_KEY: str = ""
     
     CORS_ORIGINS: str = "http://localhost:5173"
     

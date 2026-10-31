@@ -1,10 +1,10 @@
 import httpx
-import os
 import math
 import time
 from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Dict, Tuple, Any
 from app.schemas.places import PlacesResponse, Place, Location
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ async def get_nearby_places(
     type: str = Query(..., description="Type of place to search for (e.g., hospital, police)"),
     radius: int = Query(..., description="Radius in meters (e.g., 1000, 3000, 5000, 10000)")
 ):
-    api_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+    api_key = settings.GOOGLE_PLACES_API_KEY
     if not api_key:
         raise HTTPException(status_code=500, detail="Google Places API key is missing.")
 
