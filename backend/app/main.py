@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Depends, Request
+import os
+from fastapi import FastAPI, Depends, Request, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.api.endpoints import disasters, emergency_numbers, departments, auth, places, ai_router, alerts, news
 from app.api.deps import get_current_user, get_db
@@ -23,24 +23,31 @@ logger = logging.getLogger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
 
+IS_VERCEL = os.environ.get("VERCEL", "") == "1"
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     initialize_firebase()
     
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(poll_cap_feed, 'interval', minutes=10)
-    scheduler.add_job(poll_news, 'interval', minutes=10)
-    scheduler.start()
-    
-    # Run once at startup
-    scheduler.add_job(poll_cap_feed)
-    scheduler.add_job(poll_news)
-    
-    yield
-    
-    # Shutdown
-    scheduler.shutdown()
+    if not IS_VERCEL:
+        # Only run APScheduler locally — Vercel uses Cron Jobs instead
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(poll_cap_feed, 'interval', minutes=10)
+        scheduler.add_job(poll_news, 'interval', minutes=10)
+        scheduler.start()
+        
+        # Run once at startup
+        scheduler.add_job(poll_cap_feed)
+        scheduler.add_job(poll_news)
+        
+        yield
+        
+        # Shutdown
+        scheduler.shutdown()
+    else:
+        yield
 
 app = FastAPI(title="AwakIN API", version="1.0.0", lifespan=lifespan)
 
@@ -48,7 +55,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Configuration
-origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
+origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -100,6 +107,29 @@ app.include_router(
 class HealthCheckResponse(BaseModel):
     status: str
     message: str
+
+class CronJobResponse(BaseModel):
+    status: str
+    job: str
+
+def _verify_cron_secret(authorization: str | None) -> None:
+    cron_secret = os.environ.get("CRON_SECRET") or settings.CRON_SECRET
+    if cron_secret and authorization != f"Bearer {cron_secret}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+@app.api_route("/api/cron/poll-alerts", methods=["GET", "POST"], response_model=CronJobResponse, tags=["Cron"])
+async def cron_poll_alerts(authorization: str | None = Header(default=None)):
+    """Triggered by Vercel Cron Jobs (GET) or manual trigger (POST) to poll CAP alerts."""
+    _verify_cron_secret(authorization)
+    await poll_cap_feed()
+    return CronJobResponse(status="ok", job="poll_cap_feed")
+
+@app.api_route("/api/cron/poll-news", methods=["GET", "POST"], response_model=CronJobResponse, tags=["Cron"])
+async def cron_poll_news(authorization: str | None = Header(default=None)):
+    """Triggered by Vercel Cron Jobs (GET) or manual trigger (POST) to poll disaster news."""
+    _verify_cron_secret(authorization)
+    await poll_news()
+    return CronJobResponse(status="ok", job="poll_news")
 
 @app.get("/api/health", response_model=HealthCheckResponse)
 @limiter.limit("10/minute")
