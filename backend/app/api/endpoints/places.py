@@ -106,7 +106,7 @@ async def get_nearby_places(
             }
             # For text search, radius acts as a bias.
             
-        response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+        response = await client.post(url, headers=headers, json=payload, timeout=7.0)
 
         if response.status_code != 200:
             if response.status_code == 403:

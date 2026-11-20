@@ -11,15 +11,21 @@ from app.db.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
+_GEOCODE_CACHE: dict[tuple[float, float], tuple[str | None, str | None]] = {}
+
 async def reverse_geocode(lat: float, lon: float) -> tuple[str, str]:
     """Returns (state, district) from Google Geocoding API."""
     if not settings.GOOGLE_MAPS_API_KEY:
         return None, None
         
+    cache_key = (round(lat, 2), round(lon, 2))
+    if cache_key in _GEOCODE_CACHE:
+        return _GEOCODE_CACHE[cache_key]
+
     url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}&key={settings.GOOGLE_MAPS_API_KEY}"
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=5.0)
+            resp = await client.get(url, timeout=3.0)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("status") == "OK" and data.get("results"):
@@ -31,6 +37,7 @@ async def reverse_geocode(lat: float, lon: float) -> tuple[str, str]:
                             state = comp.get("long_name")
                         if "administrative_area_level_2" in comp.get("types", []):
                             district = comp.get("long_name")
+                    _GEOCODE_CACHE[cache_key] = (state, district)
                     return state, district
     except Exception as e:
         logger.error(f"Geocoding error: {e}")
@@ -52,7 +59,7 @@ async def poll_cap_feed():
         
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=10.0)
+            resp = await client.get(url, timeout=5.0)
             if resp.status_code != 200:
                 logger.error(f"Failed to fetch CAP feed, status: {resp.status_code}")
                 return
@@ -65,39 +72,45 @@ async def poll_cap_feed():
         # Simple approach: find all 'info' tags or 'alert' tags
         alerts_to_upsert = []
         
-        # If it's an RSS feed, we might need to parse items, but let's assume we find CAP alerts
-        for alert_elem in root.iter('{urn:oasis:names:tc:emergency:cap:1.2}alert'):
-            identifier = alert_elem.findtext('{urn:oasis:names:tc:emergency:cap:1.2}identifier')
+        # Support both namespaced and plain CAP alert elements
+        cap_alerts = list(root.iter('{urn:oasis:names:tc:emergency:cap:1.2}alert')) or list(root.iter('alert'))
+        
+        for alert_elem in cap_alerts:
+            identifier = alert_elem.findtext('{urn:oasis:names:tc:emergency:cap:1.2}identifier') or alert_elem.findtext('identifier')
             if not identifier:
                 continue
                 
             info = alert_elem.find('{urn:oasis:names:tc:emergency:cap:1.2}info')
             if info is None:
+                info = alert_elem.find('info')
+            if info is None:
                 continue
                 
-            event = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}event')
-            severity = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}severity')
-            urgency = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}urgency')
-            certainty = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}certainty')
-            headline = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}headline')
-            description = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}description')
-            instruction = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}instruction')
-            effective_str = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}effective')
-            expires_str = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}expires')
+            event = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}event') or info.findtext('event')
+            severity = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}severity') or info.findtext('severity')
+            urgency = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}urgency') or info.findtext('urgency')
+            certainty = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}certainty') or info.findtext('certainty')
+            headline = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}headline') or info.findtext('headline')
+            description = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}description') or info.findtext('description')
+            instruction = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}instruction') or info.findtext('instruction')
+            effective_str = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}effective') or info.findtext('effective')
+            expires_str = info.findtext('{urn:oasis:names:tc:emergency:cap:1.2}expires') or info.findtext('expires')
             
             effective = parse_datetime(effective_str) if effective_str else None
             expires = parse_datetime(expires_str) if expires_str else None
             
             area = info.find('{urn:oasis:names:tc:emergency:cap:1.2}area')
+            if area is None:
+                area = info.find('area')
             area_desc = None
             polygon = None
             circle = None
             lat, lon = None, None
             
             if area is not None:
-                area_desc = area.findtext('{urn:oasis:names:tc:emergency:cap:1.2}areaDesc')
-                polygon = area.findtext('{urn:oasis:names:tc:emergency:cap:1.2}polygon')
-                circle = area.findtext('{urn:oasis:names:tc:emergency:cap:1.2}circle')
+                area_desc = area.findtext('{urn:oasis:names:tc:emergency:cap:1.2}areaDesc') or area.findtext('areaDesc')
+                polygon = area.findtext('{urn:oasis:names:tc:emergency:cap:1.2}polygon') or area.findtext('polygon')
+                circle = area.findtext('{urn:oasis:names:tc:emergency:cap:1.2}circle') or area.findtext('circle')
                 
                 # Derive lat, lon from circle (lat,lon radius)
                 if circle:
@@ -105,8 +118,11 @@ async def poll_cap_feed():
                     if len(parts) > 0:
                         coords = parts[0].split(',')
                         if len(coords) == 2:
-                            lat = float(coords[0])
-                            lon = float(coords[1])
+                            try:
+                                lat = float(coords[0])
+                                lon = float(coords[1])
+                            except ValueError:
+                                pass
                             
             state, district = None, None
             if lat is not None and lon is not None:
@@ -130,6 +146,46 @@ async def poll_cap_feed():
                 "starts_at": effective,
                 "expires_at": expires,
             })
+
+        # If no direct CAP alert tags were found, parse RSS item tags
+        if not alerts_to_upsert:
+            for item in root.findall(".//item"):
+                title = item.findtext("title")
+                link = item.findtext("link")
+                guid = item.findtext("guid")
+                desc = item.findtext("description")
+                category = item.findtext("category")
+                pub_date_str = item.findtext("pubDate")
+                identifier = guid or link or title
+                if not identifier:
+                    continue
+                
+                published_at = None
+                if pub_date_str:
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        published_at = parsedate_to_datetime(pub_date_str)
+                    except Exception:
+                        pass
+                
+                alerts_to_upsert.append({
+                    "source": "SACHET",
+                    "external_id": identifier,
+                    "title": title or "Alert",
+                    "description": desc,
+                    "severity": category or "Moderate",
+                    "event": category or "Disaster Alert",
+                    "urgency": "Expected",
+                    "certainty": "Observed",
+                    "instruction": desc,
+                    "polygon": None,
+                    "circle": None,
+                    "area_desc": title,
+                    "lat": None,
+                    "lon": None,
+                    "starts_at": published_at,
+                    "expires_at": None,
+                })
             
         async with AsyncSessionLocal() as db:
             # Delete expired

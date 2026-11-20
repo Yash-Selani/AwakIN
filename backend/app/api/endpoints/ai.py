@@ -142,7 +142,8 @@ If the prompt is unrelated to an emergency, disaster, or safety, firmly but poli
                 )
             )
 
-        response = await asyncio.wait_for(call_gemini(), timeout=20.0)
+        # Wrap Gemini call in timeout (8.0s to stay safely within Vercel Hobby 10s limit)
+        response = await asyncio.wait_for(call_gemini(), timeout=8.0)
         
         raw_json = response.text
         data = json.loads(raw_json)
@@ -212,7 +213,8 @@ Instructions: {request.alert_instruction}
                 )
             )
 
-        response = await asyncio.wait_for(call_gemini(), timeout=20.0)
+        # Wrap Gemini call in timeout (8.0s to stay safely within Vercel Hobby 10s limit)
+        response = await asyncio.wait_for(call_gemini(), timeout=8.0)
         
         raw_json = response.text
         data = json.loads(raw_json)

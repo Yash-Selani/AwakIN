@@ -64,7 +64,7 @@ If it is NOT a disaster, simply output `is_disaster_related`: false for that ite
                 )
             )
             
-        response = await asyncio.wait_for(call_gemini(), timeout=30.0)
+        response = await asyncio.wait_for(call_gemini(), timeout=6.0)
         data = json.loads(response.text)
         
         results = []
@@ -90,7 +90,7 @@ async def fetch_google_news_rss(query: str) -> list[dict]:
     items = []
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=15.0)
+            resp = await client.get(url, timeout=4.0)
             if resp.status_code == 200:
                 root = ET.fromstring(resp.text)
                 for item in root.findall(".//item")[:10]: # limit to top 10 per query to avoid massive batches
@@ -123,7 +123,7 @@ async def poll_news():
     # We query for a few cities + generic disaster keywords to not overwhelm the limits
     all_raw_items = []
     
-    for city in CITIES[:3]: # Poll only top 3 cities at a time or cycle them in production
+    for city in CITIES[:2]: # Keep query count compact to stay safely within Vercel Hobby 10s limit
         query = f"({' OR '.join(KEYWORDS)}) {city}"
         items = await fetch_google_news_rss(query)
         all_raw_items.extend(items)
@@ -139,14 +139,12 @@ async def poll_news():
             unique_items.append(item)
             seen_urls.add(item["url"])
             
-    # Process with Gemini in batches of 15
+    # Process with Gemini in a single focused batch (up to 10 items) to stay within 10s timeout
     valid_news = []
-    batch_size = 15
-    for i in range(0, len(unique_items), batch_size):
-        batch = unique_items[i:i+batch_size]
+    batch = unique_items[:10]
+    if batch:
         processed = await parse_with_gemini(batch)
         valid_news.extend(processed)
-        await asyncio.sleep(1) # avoid rate limits
         
     if not valid_news:
         logger.info("No valid disaster news found in this poll.")
